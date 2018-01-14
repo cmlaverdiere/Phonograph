@@ -44,7 +44,7 @@ android {
         enabled = true
     }
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 23
         targetSdkVersion 27
 
         renderscriptTargetApi 27
