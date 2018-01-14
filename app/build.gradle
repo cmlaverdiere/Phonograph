@@ -50,7 +50,7 @@ android {
         renderscriptTargetApi 27
         vectorDrawables.useSupportLibrary = true
 
-        applicationId 'com.kabouzeid.gramophone'
+        applicationId 'com.kabouzeid.dev.gramophone'
         versionCode 150
         versionName '0.16.5'
     }
