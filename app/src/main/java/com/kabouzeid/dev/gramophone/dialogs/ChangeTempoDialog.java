@@ -39,8 +39,7 @@ public class ChangeTempoDialog extends DialogFragment {
                 .negativeText(android.R.string.cancel)
                 .itemsCallbackSingleChoice(-1, (materialDialog, view, which, tempoChars) -> {
                     float tempoMultiplier = Float.parseFloat(tempoChars.toString());
-                    Playback playback = MusicPlayerRemote.musicService.getPlayback();
-                    playback.setTempo(tempoMultiplier);
+                    MusicPlayerRemote.musicService.setTempo(tempoMultiplier);
                     return true;
                 })
                 .build();

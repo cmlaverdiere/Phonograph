@@ -101,6 +101,7 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
 
     public static final String SAVED_POSITION = "POSITION";
     public static final String SAVED_POSITION_IN_TRACK = "POSITION_IN_TRACK";
+    public static final String SAVED_TEMPO = "TEMPO";
     public static final String SAVED_SHUFFLE_MODE = "SHUFFLE_MODE";
     public static final String SAVED_REPEAT_MODE = "REPEAT_MODE";
 
@@ -114,6 +115,7 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
     private static final int DUCK = 7;
     private static final int UNDUCK = 8;
     public static final int RESTORE_QUEUES = 9;
+    public static final int SET_TEMPO = 10;
 
     public static final int SHUFFLE_MODE_NONE = 0;
     public static final int SHUFFLE_MODE_SHUFFLE = 1;
@@ -140,6 +142,7 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
     private int repeatMode;
     private boolean queuesRestored;
     private boolean pausedByTransientLossOfFocus;
+    private float tempo = 1.0f;
     private PlayingNotification playingNotification;
     private AudioManager audioManager;
     @SuppressWarnings("deprecation")
@@ -399,10 +402,15 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
         PreferenceManager.getDefaultSharedPreferences(this).edit().putInt(SAVED_POSITION_IN_TRACK, getSongProgressMillis()).apply();
     }
 
+    private void saveTempo() {
+        PreferenceManager.getDefaultSharedPreferences(this).edit().putFloat(SAVED_TEMPO, getTempo()).apply();
+    }
+
     public void saveState() {
         saveQueues();
         savePosition();
         savePositionInTrack();
+        saveTempo();
     }
 
     private void saveQueues() {
@@ -426,16 +434,19 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
             ArrayList<Song> restoredOriginalQueue = MusicPlaybackQueueStore.getInstance(this).getSavedOriginalPlayingQueue();
             int restoredPosition = PreferenceManager.getDefaultSharedPreferences(this).getInt(SAVED_POSITION, -1);
             int restoredPositionInTrack = PreferenceManager.getDefaultSharedPreferences(this).getInt(SAVED_POSITION_IN_TRACK, -1);
+            float restoredTempo = PreferenceManager.getDefaultSharedPreferences(this).getFloat(SAVED_TEMPO, 1.0f);
 
             if (restoredQueue.size() > 0 && restoredQueue.size() == restoredOriginalQueue.size() && restoredPosition != -1) {
                 this.originalPlayingQueue = restoredOriginalQueue;
                 this.playingQueue = restoredQueue;
 
                 position = restoredPosition;
+                tempo = restoredTempo;
                 openCurrent();
                 prepareNext();
 
                 if (restoredPositionInTrack > 0) seek(restoredPositionInTrack);
+                this.setTempo(this.getTempo());
 
                 notHandledMetaChangedForCurrentTrack = true;
                 sendChangeInternal(META_CHANGED);
@@ -479,6 +490,11 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
     public int getPosition() {
         return position;
     }
+
+    public float getTempo() {
+        return tempo;
+    }
+
 
     public void playNextSong(boolean force) {
         playSongAt(getNextPosition(force));
@@ -550,11 +566,12 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
     }
 
     private void updateMediaSessionPlaybackState() {
+        this.setTempo(this.getTempo());
         mediaSession.setPlaybackState(
                 new PlaybackStateCompat.Builder()
                         .setActions(MEDIA_SESSION_ACTIONS)
                         .setState(isPlaying() ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED,
-                                getPosition(), 1)
+                                getPosition(), this.getTempo())
                         .build());
     }
 
@@ -818,6 +835,12 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
         playerHandler.obtainMessage(SET_POSITION, position, 0).sendToTarget();
     }
 
+    public void setTempo(float tempo) {
+        this.tempo = tempo;
+        this.playback.setTempo(this.tempo);
+        saveState();
+    }
+
     private void playSongAtImpl(int position) {
         if (openTrackAndPrepareNextAt(position)) {
             play();
@@ -1068,6 +1091,7 @@ public class MusicService extends Service implements SharedPreferences.OnSharedP
                 updateMediaSessionMetaData();
                 savePosition();
                 savePositionInTrack();
+                setTempo(this.getTempo());
                 final Song currentSong = getCurrentSong();
                 HistoryStore.getInstance(this).addSongId(currentSong.id);
                 if (songPlayCountHelper.shouldBumpPlayCount()) {
